@@ -20,8 +20,8 @@ import java.time.LocalDateTime
 import java.time.YearMonth
 
 val CATEGORY_PALETTE: List<Int> = listOf(
-    0xFFE57373, 0xFFF06292, 0xFFBA68C8, 0xFF9575CD, 0xFF7986CB, 0xFF64B5F6, 0xFF4DD0E1,
-    0xFF4DB6AC, 0xFF81C784, 0xFFDCE775, 0xFFFFD54F, 0xFFFFB74D, 0xFFA1887F, 0xFF90A4AE,
+    0xFF2F9E6E, 0xFFE4683F, 0xFF3D7EDB, 0xFFD6A21E, 0xFF8E5BD8, 0xFFD94F7A, 0xFF1FA3B3,
+    0xFF6C8E2E, 0xFFC2593A, 0xFF5965D6, 0xFFB98A2F, 0xFF4F7A68, 0xFF9B6B4C, 0xFF6F7C86,
 ).map { it.toInt() }
 
 data class MonthSnapshot(
@@ -151,25 +151,41 @@ class Repository(private val context: Context, private val db: AppDatabase) {
             if (dao.countCategories() > 0) return@withLock
             db.withTransaction {
                 if (dao.getAccounts().isEmpty()) {
-                    dao.insertAccount(Account(name = "Tarjeta", emoji = "💳", sortOrder = 0))
-                    dao.insertAccount(Account(name = "Efectivo", emoji = "💶", sortOrder = 1))
-                    dao.insertAccount(Account(name = "Ahorro", emoji = "🏦", sortOrder = 2))
+                    dao.insertAccount(Account(name = "Tarjeta", icon = "card", sortOrder = 0))
+                    dao.insertAccount(Account(name = "Efectivo", icon = "cash", sortOrder = 1))
+                    dao.insertAccount(Account(name = "Ahorro", icon = "savings", sortOrder = 2))
                 }
                 val expenses = listOf(
-                    "🛒" to "Supermercado", "🍔" to "Comer fuera", "🚆" to "Transporte", "🚗" to "Coche",
-                    "🏠" to "Casa", "📱" to "Suscripciones", "🎮" to "Ocio", "👕" to "Ropa",
-                    "🏋️" to "Deporte", "💊" to "Salud", "🎁" to "Regalos", "📦" to "Otros",
+                    "cart" to "Supermercado", "restaurant" to "Comer fuera", "train" to "Transporte", "car" to "Coche",
+                    "home" to "Casa", "subscriptions" to "Suscripciones", "games" to "Ocio", "shirt" to "Ropa",
+                    "gym" to "Deporte", "health" to "Salud", "gift" to "Regalos", "other" to "Otros",
                 )
-                expenses.forEachIndexed { i, (e, n) ->
+                expenses.forEachIndexed { i, (icon, n) ->
                     dao.insertCategory(
-                        Category(name = n, emoji = e, color = CATEGORY_PALETTE[i % CATEGORY_PALETTE.size], type = TxType.EXPENSE, sortOrder = i)
+                        Category(name = n, icon = icon, color = CATEGORY_PALETTE[i % CATEGORY_PALETTE.size], type = TxType.EXPENSE, sortOrder = i)
                     )
                 }
-                val incomes = listOf("💼" to "Nómina", "💰" to "Extras", "🎁" to "Regalos", "↩️" to "Devoluciones", "➕" to "Otros ingresos")
-                incomes.forEachIndexed { i, (e, n) ->
+                val incomes = listOf("work" to "Nómina", "payments" to "Extras", "gift" to "Regalos", "refund" to "Devoluciones", "plus" to "Otros ingresos")
+                incomes.forEachIndexed { i, (icon, n) ->
                     dao.insertCategory(
-                        Category(name = n, emoji = e, color = CATEGORY_PALETTE[(i + 7) % CATEGORY_PALETTE.size], type = TxType.INCOME, sortOrder = 100 + i)
+                        Category(name = n, icon = icon, color = CATEGORY_PALETTE[(i + 7) % CATEGORY_PALETTE.size], type = TxType.INCOME, sortOrder = 100 + i)
                     )
+                }
+            }
+        }
+    }
+
+    /** La v1 guardaba emojis como icono: los traduce a claves de icono. */
+    suspend fun migrateLegacyIcons() {
+        mutex.withLock {
+            db.withTransaction {
+                for (a in dao.getAccounts()) {
+                    val k = IconKeys.normalizeAccount(a.icon)
+                    if (k != a.icon) dao.updateAccount(a.copy(icon = k))
+                }
+                for (c in dao.getCategories()) {
+                    val k = IconKeys.normalizeCategory(c.icon)
+                    if (k != c.icon) dao.updateCategory(c.copy(icon = k))
                 }
             }
         }
@@ -188,7 +204,7 @@ class Repository(private val context: Context, private val db: AppDatabase) {
         root.put("accounts", JSONArray().also { arr ->
             accounts.forEach { a ->
                 arr.put(
-                    JSONObject().put("id", a.id).put("name", a.name).put("emoji", a.emoji)
+                    JSONObject().put("id", a.id).put("name", a.name).put("icon", a.icon)
                         .put("initialBalance", a.initialBalance).put("sortOrder", a.sortOrder).put("archived", a.archived)
                 )
             }
@@ -196,7 +212,7 @@ class Repository(private val context: Context, private val db: AppDatabase) {
         root.put("categories", JSONArray().also { arr ->
             categories.forEach { c ->
                 arr.put(
-                    JSONObject().put("id", c.id).put("name", c.name).put("emoji", c.emoji).put("color", c.color)
+                    JSONObject().put("id", c.id).put("name", c.name).put("icon", c.icon).put("color", c.color)
                         .put("type", c.type.name).put("budget", c.budget ?: JSONObject.NULL)
                         .put("sortOrder", c.sortOrder).put("archived", c.archived)
                 )
@@ -235,11 +251,11 @@ class Repository(private val context: Context, private val db: AppDatabase) {
         fun JSONArray.objects(): List<JSONObject> = (0 until length()).map { getJSONObject(it) }
 
         val accounts = root.getJSONArray("accounts").objects().map {
-            Account(it.getLong("id"), it.getString("name"), it.getString("emoji"), it.getLong("initialBalance"),
+            Account(it.getLong("id"), it.getString("name"), IconKeys.normalizeAccount(it.optString("icon", it.optString("emoji"))), it.getLong("initialBalance"),
                 it.optInt("sortOrder"), it.optBoolean("archived"))
         }
         val categories = root.getJSONArray("categories").objects().map {
-            Category(it.getLong("id"), it.getString("name"), it.getString("emoji"), it.getInt("color"),
+            Category(it.getLong("id"), it.getString("name"), IconKeys.normalizeCategory(it.optString("icon", it.optString("emoji"))), it.getInt("color"),
                 TxType.valueOf(it.getString("type")), it.longOrNull("budget"), it.optInt("sortOrder"), it.optBoolean("archived"))
         }
         val movements = root.getJSONArray("movements").objects().map {

@@ -19,6 +19,7 @@ class SaldoApp : Application() {
         repository = Repository(this, AppDatabase.build(this))
         appScope.launch {
             repository.seedIfEmpty()
+            repository.migrateLegacyIcons()
             repository.generateRecurring()
         }
     }

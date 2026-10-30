@@ -17,28 +17,22 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.ChevronRight
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -55,10 +49,23 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.andres.saldo.data.CATEGORY_PALETTE
 import com.andres.saldo.data.Category
+import com.andres.saldo.data.IconKeys
 import com.andres.saldo.data.TxType
 import com.andres.saldo.util.Money
 
-@OptIn(ExperimentalMaterial3Api::class)
+/** Cabecera común para pantallas secundarias. */
+@Composable
+fun SubScreenHeader(title: String, onBack: () -> Unit) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RoundIconButton(Icons.AutoMirrored.Rounded.ArrowBack, "Atrás", onBack)
+        Spacer(Modifier.width(14.dp))
+        Text(title, style = MaterialTheme.typography.headlineSmall)
+    }
+}
+
 @Composable
 fun CategoriesScreen(vm: AppViewModel, onBack: () -> Unit) {
     val categories by vm.categories.collectAsStateWithLifecycle()
@@ -68,34 +75,53 @@ fun CategoriesScreen(vm: AppViewModel, onBack: () -> Unit) {
     val list = categories.filter { it.type == type }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Categorías") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Atrás") } },
-            )
-        },
+        containerColor = MaterialTheme.colorScheme.background,
+        topBar = { SubScreenHeader("Categorías", onBack) },
         floatingActionButton = {
-            FloatingActionButton(onClick = { creating = true }) { Icon(Icons.Filled.Add, "Nueva categoría") }
+            FloatingActionButton(
+                onClick = { creating = true },
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                shape = MaterialTheme.shapes.large,
+            ) { Icon(Icons.Rounded.Add, "Nueva categoría") }
         },
     ) { padding ->
-        LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(bottom = 96.dp)) {
+        LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(bottom = 110.dp)) {
             item {
-                Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(selected = type == TxType.EXPENSE, onClick = { type = TxType.EXPENSE }, label = { Text("Gastos") })
-                    FilterChip(selected = type == TxType.INCOME, onClick = { type = TxType.INCOME }, label = { Text("Ingresos") })
-                }
-            }
-            items(list, key = { it.id }) { c ->
-                ListItem(
-                    modifier = Modifier.clickable { editing = c },
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                    leadingContent = { EmojiBadge(c.emoji, Color(c.color)) },
-                    headlineContent = { Text(c.name) },
-                    supportingContent = {
-                        val budgetText = c.budget?.takeIf { it > 0 }?.let { "Presupuesto: ${Money.format(it)}/mes" }
-                        Text(if (c.type == TxType.EXPENSE) budgetText ?: "Sin presupuesto" else "Categoría de ingreso")
-                    },
+                PillSelector(
+                    listOf(TxType.EXPENSE to "Gastos", TxType.INCOME to "Ingresos"),
+                    type, { type = it },
+                    Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
                 )
+            }
+            item {
+                Spacer(Modifier.padding(top = 8.dp))
+                SaldoCard(padding = 4.dp) {
+                    list.forEachIndexed { i, c ->
+                        if (i > 0) ThinDivider(Modifier.padding(start = 72.dp, end = 16.dp))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(MaterialTheme.shapes.medium)
+                                .clickable { editing = c }
+                                .padding(horizontal = 12.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            IconTile(AppIcons.category(c.icon), Color(c.color))
+                            Spacer(Modifier.width(14.dp))
+                            Column(Modifier.weight(1f)) {
+                                Text(c.name, style = MaterialTheme.typography.titleSmall)
+                                val budgetText = c.budget?.takeIf { it > 0 }?.let { "Presupuesto ${Money.format(it)} al mes" }
+                                Text(
+                                    if (c.type == TxType.EXPENSE) budgetText ?: "Sin presupuesto" else "Ingreso",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                            Icon(Icons.Rounded.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.outline)
+                        }
+                    }
+                }
             }
         }
     }
@@ -123,34 +149,47 @@ private fun CategoryDialog(
     onDelete: (() -> Unit)?,
 ) {
     var name by remember { mutableStateOf(initial?.name ?: "") }
-    var emoji by remember { mutableStateOf(initial?.emoji ?: "🏷️") }
+    var icon by remember { mutableStateOf(initial?.icon ?: "other") }
     var color by remember { mutableIntStateOf(initial?.color ?: CATEGORY_PALETTE.random()) }
     var budget by remember { mutableStateOf(initial?.budget?.takeIf { it > 0 }?.let { Money.toInput(it) } ?: "") }
     var askDelete by remember { mutableStateOf(false) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (initial == null) "Nueva categoría" else "Editar categoría") },
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        title = {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                IconTile(AppIcons.category(icon), Color(color), size = 40.dp, selected = true)
+                Spacer(Modifier.width(12.dp))
+                Text(if (initial == null) "Nueva categoría" else "Editar categoría", style = MaterialTheme.typography.titleLarge)
+            }
+        },
         text = {
-            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedTextField(
-                        value = emoji, onValueChange = { emoji = it.take(8) },
-                        label = { Text("Icono") }, singleLine = true, modifier = Modifier.width(88.dp),
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    OutlinedTextField(
-                        value = name, onValueChange = { name = it },
-                        label = { Text("Nombre") }, singleLine = true, modifier = Modifier.weight(1f),
-                    )
-                }
-                Text("Pega un emoji en Icono (desde el teclado de emojis).", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                OutlinedTextField(
+                    value = name, onValueChange = { name = it },
+                    label = { Text("Nombre") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                    shape = MaterialTheme.shapes.medium,
+                )
+                MiniLabel("Color")
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     CATEGORY_PALETTE.forEach { c ->
                         Box(
-                            Modifier.size(32.dp).clip(CircleShape).background(Color(c))
+                            Modifier
+                                .size(30.dp)
+                                .clip(CircleShape)
+                                .background(Color(c))
                                 .then(if (c == color) Modifier.border(3.dp, MaterialTheme.colorScheme.onSurface, CircleShape) else Modifier)
                                 .clickable { color = c },
+                        )
+                    }
+                }
+                MiniLabel("Icono")
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    IconKeys.category.forEach { k ->
+                        IconTile(
+                            AppIcons.category(k), Color(color), size = 40.dp, selected = icon == k,
+                            modifier = Modifier.clip(MaterialTheme.shapes.small).clickable { icon = k },
                         )
                     }
                 }
@@ -162,11 +201,12 @@ private fun CategoryDialog(
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         modifier = Modifier.fillMaxWidth(),
+                        shape = MaterialTheme.shapes.medium,
                     )
                 }
                 if (onDelete != null) {
                     if (askDelete) {
-                        Text("Los movimientos de esta categoría quedarán como \"Sin categoría\" y sus recurrentes se pausarán.", style = MaterialTheme.typography.bodySmall)
+                        Text("Sus movimientos quedarán como \"Sin categoría\" y sus recurrentes se pausarán.", style = MaterialTheme.typography.bodySmall)
                         TextButton(onClick = onDelete) { Text("Sí, eliminar", color = MaterialTheme.colorScheme.error) }
                     } else {
                         TextButton(onClick = { askDelete = true }) { Text("Eliminar categoría", color = MaterialTheme.colorScheme.error) }
@@ -178,11 +218,11 @@ private fun CategoryDialog(
             TextButton(
                 enabled = name.isNotBlank(),
                 onClick = {
-                    val base = initial ?: Category(name = "", emoji = "", color = color, type = type)
+                    val base = initial ?: Category(name = "", icon = icon, color = color, type = type)
                     onSave(
                         base.copy(
                             name = name.trim(),
-                            emoji = emoji.trim().ifBlank { "🏷️" },
+                            icon = icon,
                             color = color,
                             budget = if (type == TxType.EXPENSE) Money.parse(budget)?.takeIf { it > 0 } else null,
                         )

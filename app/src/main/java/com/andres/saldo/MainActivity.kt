@@ -6,6 +6,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.mutableStateOf
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.lifecycleScope
 import com.andres.saldo.ui.SaldoAppUi
 import com.andres.saldo.ui.theme.SaldoTheme
@@ -23,6 +24,7 @@ class MainActivity : ComponentActivity() {
     private val launchRequest = mutableStateOf<LaunchRequest?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        installSplashScreen()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         if (savedInstanceState == null) {

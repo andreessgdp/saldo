@@ -7,7 +7,7 @@
     android:viewportHeight="108">
     <!-- tarjeta asomando -->
     <path
-        android:fillColor="#B9E6CF"
+        android:fillColor="#D2F26B"
         android:pathData="M38,33 h28 a4,4 0 0 1 4,4 v4 h-36 v-4 a4,4 0 0 1 4,-4 z" />
     <!-- cuerpo -->
     <path
@@ -15,7 +15,7 @@
         android:pathData="M36,40 h36 a6,6 0 0 1 6,6 v22 a6,6 0 0 1 -6,6 h-36 a6,6 0 0 1 -6,-6 v-22 a6,6 0 0 1 6,-6 z" />
     <!-- cierre -->
     <path
-        android:fillColor="#1F6F50"
+        android:fillColor="#0E3A2C"
         android:pathData="M62,51 h16 v12 h-16 a6,6 0 0 1 -6,-6 a6,6 0 0 1 6,-6 z" />
     <path
         android:fillColor="#FFFFFF"

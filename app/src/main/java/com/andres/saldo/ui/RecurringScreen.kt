@@ -7,33 +7,29 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Repeat
+import androidx.compose.material.icons.rounded.SwapHoriz
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Checkbox
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -41,15 +37,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.andres.saldo.data.Account
 import com.andres.saldo.data.Category
 import com.andres.saldo.data.Recurring
 import com.andres.saldo.data.TxType
+import com.andres.saldo.ui.theme.AmountStyle
 import com.andres.saldo.ui.theme.SaldoColors
 import com.andres.saldo.util.Money
 import com.andres.saldo.util.nextOccurrence
@@ -58,7 +57,6 @@ import com.andres.saldo.util.shortDate
 import java.time.LocalDate
 import java.time.YearMonth
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RecurringScreen(vm: AppViewModel, onBack: () -> Unit) {
     val recurring by vm.recurring.collectAsStateWithLifecycle()
@@ -71,86 +69,71 @@ fun RecurringScreen(vm: AppViewModel, onBack: () -> Unit) {
     var editing by remember { mutableStateOf<Recurring?>(null) }
     var creating by remember { mutableStateOf(false) }
 
-    val monthlyNet = recurring.filter { it.active }.sumOf {
-        when (it.type) { TxType.INCOME -> it.amount; TxType.EXPENSE -> -it.amount; TxType.TRANSFER -> 0L }
-    }
+    val active = recurring.filter { it.active }
+    val fixedIncome = active.filter { it.type == TxType.INCOME }.sumOf { it.amount }
+    val fixedExpense = active.filter { it.type == TxType.EXPENSE }.sumOf { it.amount }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Recurrentes") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, "Atrás") } },
-            )
-        },
+        containerColor = MaterialTheme.colorScheme.background,
+        topBar = { SubScreenHeader("Recurrentes", onBack) },
         floatingActionButton = {
-            FloatingActionButton(onClick = { creating = true }) { Icon(Icons.Filled.Add, "Nuevo recurrente") }
+            FloatingActionButton(
+                onClick = { creating = true },
+                containerColor = MaterialTheme.colorScheme.primaryContainer,
+                contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                shape = MaterialTheme.shapes.large,
+            ) { Icon(Icons.Rounded.Add, "Nuevo recurrente") }
         },
     ) { padding ->
-        LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(bottom = 96.dp)) {
-            item {
-                Text(
-                    "Se apuntan solos el día que toca cada mes (al abrir la app o al refrescarse el widget).",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                )
-            }
+        LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(bottom = 110.dp)) {
             if (recurring.isEmpty()) {
-                item { EmptyState("🔁", "Sin recurrentes", "Añade tu nómina, el renting, el gimnasio o tus suscripciones.") }
+                item { EmptyState(Icons.Rounded.Repeat, "Sin recurrentes", "Añade tu nómina, el renting, el gimnasio o tus suscripciones y se apuntarán solos cada mes.") }
             } else {
                 item {
-                    Text(
-                        "Neto fijo mensual: " + (if (monthlyNet > 0) "+" else "") + Money.format(monthlyNet),
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                    )
+                    SaldoCard(modifier = Modifier.padding(top = 8.dp)) {
+                        Row {
+                            Column(Modifier.weight(1f)) {
+                                MiniLabel("Ingresos fijos")
+                                Text(Money.format(fixedIncome), style = AmountStyle.copy(fontSize = 20.sp), color = SaldoColors.income())
+                            }
+                            Column(Modifier.weight(1f)) {
+                                MiniLabel("Gastos fijos")
+                                Text(Money.format(fixedExpense), style = AmountStyle.copy(fontSize = 20.sp), color = SaldoColors.expense())
+                            }
+                            Column(Modifier.weight(1f)) {
+                                MiniLabel("Margen")
+                                Text(Money.format(fixedIncome - fixedExpense), style = AmountStyle.copy(fontSize = 20.sp))
+                            }
+                        }
+                    }
+                }
+                item {
+                    SectionTitle("Cada mes")
+                    SaldoCard(padding = 4.dp) {
+                        recurring.forEachIndexed { i, r ->
+                            if (i > 0) ThinDivider(Modifier.padding(start = 72.dp, end = 16.dp))
+                            RecurringRow(r, catMap, accMap, onClick = { editing = r }) { on ->
+                                // Al reactivar, no rellenar meses atrasados: siguiente desde hoy.
+                                val next = if (on) firstOccurrence(r.dayOfMonth, includeThisMonth = false) else r.nextDate
+                                vm.saveRecurring(r.copy(active = on, nextDate = next))
+                            }
+                        }
+                    }
                 }
             }
-            items(recurring, key = { it.id }) { r ->
-                val cat = r.categoryId?.let { catMap[it] }
-                val title = if (r.type == TxType.TRANSFER) {
-                    "${accMap[r.accountId]?.name ?: "?"} → ${r.toAccountId?.let { accMap[it]?.name } ?: "?"}"
-                } else {
-                    r.note.ifBlank { cat?.name ?: "Sin categoría" }
-                }
-                ListItem(
-                    modifier = Modifier.clickable { editing = r },
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent),
-                    leadingContent = {
-                        EmojiBadge(
-                            if (r.type == TxType.TRANSFER) "🔄" else cat?.emoji ?: "❔",
-                            cat?.let { Color(it.color) } ?: MaterialTheme.colorScheme.primary,
-                        )
-                    },
-                    headlineContent = { Text(title) },
-                    supportingContent = {
-                        Text(
-                            "Día ${r.dayOfMonth} · " +
-                                (if (r.active) "próximo ${shortDate(r.nextDate)}" else "pausado") +
-                                " · " + Money.format(r.amount),
-                            color = if (r.active) Color.Unspecified else MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    },
-                    trailingContent = {
-                        Switch(checked = r.active, onCheckedChange = { on ->
-                            // Al reactivar, no rellenar meses atrasados: siguiente desde hoy.
-                            val next = if (on) firstOccurrence(r.dayOfMonth, includeThisMonth = false) else r.nextDate
-                            vm.saveRecurring(r.copy(active = on, nextDate = next))
-                        })
-                    },
+            item {
+                Text(
+                    "Se apuntan solos el día que toca (al abrir la app o cuando se refresca el widget).",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(horizontal = 24.dp, vertical = 14.dp),
                 )
             }
         }
     }
 
     if (creating) {
-        RecurringDialog(
-            null, categories, accounts,
-            onDismiss = { creating = false },
-            onSave = { vm.saveRecurring(it); creating = false },
-            onDelete = null,
-        )
+        RecurringDialog(null, categories, accounts, onDismiss = { creating = false }, onSave = { vm.saveRecurring(it); creating = false }, onDelete = null)
     }
     editing?.let { r ->
         RecurringDialog(
@@ -159,6 +142,53 @@ fun RecurringScreen(vm: AppViewModel, onBack: () -> Unit) {
             onSave = { vm.saveRecurring(it); editing = null },
             onDelete = { vm.deleteRecurring(r); editing = null },
         )
+    }
+}
+
+@Composable
+private fun RecurringRow(
+    r: Recurring,
+    catMap: Map<Long, Category>,
+    accMap: Map<Long, Account>,
+    onClick: () -> Unit,
+    onToggle: (Boolean) -> Unit,
+) {
+    val cat = r.categoryId?.let { catMap[it] }
+    val isTransfer = r.type == TxType.TRANSFER
+    val title = if (isTransfer) {
+        "${accMap[r.accountId]?.name ?: "?"} a ${r.toAccountId?.let { accMap[it]?.name } ?: "?"}"
+    } else {
+        r.note.ifBlank { cat?.name ?: "Sin categoría" }
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.medium)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 12.dp)
+            .alpha(if (r.active) 1f else 0.55f),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        IconTile(
+            if (isTransfer) Icons.Rounded.SwapHoriz else AppIcons.category(cat?.icon),
+            if (isTransfer) SaldoColors.transfer() else cat?.let { Color(it.color) } ?: UNCATEGORIZED_COLOR,
+        )
+        Spacer(Modifier.width(14.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.titleSmall, maxLines = 1)
+            Text(
+                "Día ${r.dayOfMonth} · " + if (r.active) "próximo ${shortDate(r.nextDate)}" else "pausado",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Text(
+            (if (r.type == TxType.INCOME) "+" else if (r.type == TxType.EXPENSE) "−" else "") + Money.format(r.amount),
+            style = AmountStyle.copy(fontSize = 15.sp),
+            color = if (r.type == TxType.EXPENSE) MaterialTheme.colorScheme.onSurface else SaldoColors.forType(r.type),
+        )
+        Spacer(Modifier.width(8.dp))
+        Switch(checked = r.active, onCheckedChange = onToggle)
     }
 }
 
@@ -200,52 +230,54 @@ private fun RecurringDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(if (initial == null) "Nuevo recurrente" else "Editar recurrente") },
+        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        title = { Text(if (initial == null) "Nuevo recurrente" else "Editar recurrente", style = MaterialTheme.typography.titleLarge) },
         text = {
-            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    listOf(TxType.EXPENSE to "Gasto", TxType.INCOME to "Ingreso", TxType.TRANSFER to "Transf.").forEach { (t, l) ->
-                        FilterChip(selected = type == t, onClick = { if (type != t) { type = t; categoryId = null } }, label = { Text(l) })
-                    }
-                }
+            Column(Modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                PillSelector(
+                    listOf(TxType.EXPENSE to "Gasto", TxType.INCOME to "Ingreso", TxType.TRANSFER to "Transf."),
+                    type,
+                    { t -> if (type != t) { type = t; categoryId = null } },
+                    Modifier.fillMaxWidth(),
+                )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
                         value = amount, onValueChange = { amount = it },
                         label = { Text("Importe €") }, singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f), shape = MaterialTheme.shapes.medium,
                     )
                     OutlinedTextField(
                         value = day, onValueChange = { day = it.filter(Char::isDigit).take(2) },
                         label = { Text("Día") }, singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.weight(0.6f),
+                        modifier = Modifier.weight(0.6f), shape = MaterialTheme.shapes.medium,
                         isError = dayInt == null,
                     )
                 }
                 OutlinedTextField(
                     value = note, onValueChange = { note = it },
-                    label = { Text("Concepto (ej. Nómina Deloitte, Netflix)") }, singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text("Concepto (ej. Nómina, Netflix)") }, singleLine = true,
+                    modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium,
                 )
                 if (type == TxType.TRANSFER) {
-                    Text("Desde", style = MaterialTheme.typography.labelLarge)
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        accounts.forEach { a -> FilterChip(selected = accountId == a.id, onClick = { accountId = a.id }, label = { Text("${a.emoji} ${a.name}") }) }
+                    MiniLabel("Desde")
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        accounts.forEach { a -> SaldoChip(a.name, accountId == a.id, { accountId = a.id }, AppIcons.account(a.icon)) }
                     }
-                    Text("Hacia", style = MaterialTheme.typography.labelLarge)
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        accounts.filter { it.id != accountId }.forEach { a -> FilterChip(selected = toAccountId == a.id, onClick = { toAccountId = a.id }, label = { Text("${a.emoji} ${a.name}") }) }
+                    MiniLabel("Hacia")
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        accounts.filter { it.id != accountId }.forEach { a -> SaldoChip(a.name, toAccountId == a.id, { toAccountId = a.id }, AppIcons.account(a.icon)) }
                     }
                 } else {
-                    Text("Categoría", style = MaterialTheme.typography.labelLarge)
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        typeCats.forEach { c -> FilterChip(selected = categoryId == c.id, onClick = { categoryId = c.id }, label = { Text("${c.emoji} ${c.name}") }) }
+                    MiniLabel("Categoría")
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        typeCats.forEach { c -> SaldoChip(c.name, categoryId == c.id, { categoryId = c.id }, AppIcons.category(c.icon)) }
                     }
                     if (accounts.size > 1) {
-                        Text("Cuenta", style = MaterialTheme.typography.labelLarge)
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            accounts.forEach { a -> FilterChip(selected = accountId == a.id, onClick = { accountId = a.id }, label = { Text("${a.emoji} ${a.name}") }) }
+                        MiniLabel("Cuenta")
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                            accounts.forEach { a -> SaldoChip(a.name, accountId == a.id, { accountId = a.id }, AppIcons.account(a.icon)) }
                         }
                     }
                 }
@@ -256,7 +288,7 @@ private fun RecurringDialog(
                     }
                 }
                 if (onDelete != null) {
-                    TextButton(onClick = onDelete) { Text("Eliminar recurrente", color = SaldoColors.expense()) }
+                    TextButton(onClick = onDelete) { Text("Eliminar recurrente", color = MaterialTheme.colorScheme.error) }
                     Text("Los movimientos ya creados se mantienen.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
@@ -268,7 +300,6 @@ private fun RecurringDialog(
                 val nextDate = if (initial == null) {
                     firstOccurrence(d, includeThisMonth)
                 } else {
-                    // Mismo mes pendiente, con el nuevo día.
                     occurrenceIn(YearMonth.from(LocalDate.ofEpochDay(initial.nextDate)), d).toEpochDay()
                 }
                 onSave(

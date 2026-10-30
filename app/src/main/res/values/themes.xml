@@ -3,4 +3,10 @@
     <style name="Theme.Saldo" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:windowBackground">@color/window_bg</item>
     </style>
+
+    <style name="Theme.Saldo.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/ic_launcher_bg</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_fg</item>
+        <item name="postSplashScreenTheme">@style/Theme.Saldo</item>
+    </style>
 </resources>

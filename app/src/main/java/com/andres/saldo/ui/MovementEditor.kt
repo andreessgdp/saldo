@@ -1,7 +1,11 @@
 package com.andres.saldo.ui
 
 import android.app.DatePickerDialog
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -13,24 +17,24 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.automirrored.rounded.Backspace
+import androidx.compose.material.icons.rounded.Event
+import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.DeleteOutline
+import androidx.compose.material.icons.rounded.Edit
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -41,20 +45,26 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.andres.saldo.data.Movement
 import com.andres.saldo.data.TxType
+import com.andres.saldo.ui.theme.AmountStyle
 import com.andres.saldo.ui.theme.SaldoColors
 import com.andres.saldo.util.Money
 import com.andres.saldo.util.shortDate
 import java.time.LocalDate
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun MovementEditor(
     vm: AppViewModel,
@@ -66,6 +76,7 @@ fun MovementEditor(
     val categories by vm.categories.collectAsStateWithLifecycle()
     val accounts by vm.accounts.collectAsStateWithLifecycle()
     val context = LocalContext.current
+    val haptics = LocalHapticFeedback.current
 
     var type by rememberSaveable { mutableStateOf(initial?.type ?: initialType) }
     var amountText by rememberSaveable { mutableStateOf(initial?.let { Money.toInput(it.amount) } ?: "") }
@@ -88,6 +99,7 @@ fun MovementEditor(
         else -> categoryId != null && typeCategories.any { it.id == categoryId }
     }
     val today = LocalDate.now().toEpochDay()
+    val accent by animateColorAsState(SaldoColors.forType(type), label = "accent")
 
     fun save() {
         val accId = accountId ?: return
@@ -105,94 +117,116 @@ fun MovementEditor(
                 createdAt = initial?.createdAt ?: System.currentTimeMillis(),
             )
         )
+        haptics.performHapticFeedback(HapticFeedbackType.LongPress)
         onSaved()
     }
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(if (initial == null) "Nuevo movimiento" else "Editar movimiento") },
-                navigationIcon = {
-                    IconButton(onClick = onClose) { Icon(Icons.Filled.Close, contentDescription = "Cerrar") }
-                },
-                actions = {
-                    if (initial != null) {
-                        IconButton(onClick = { confirmDelete = true }) {
-                            Icon(Icons.Filled.Delete, contentDescription = "Borrar")
-                        }
-                    }
-                },
-            )
-        },
-    ) { padding ->
+    Scaffold(containerColor = MaterialTheme.colorScheme.background) { padding ->
         Column(
             modifier = Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding).imePadding(),
         ) {
+            // Barra superior
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                RoundIconButton(Icons.Rounded.Close, "Cerrar", onClose)
+                Text(
+                    if (initial == null) "Nuevo movimiento" else "Editar movimiento",
+                    style = MaterialTheme.typography.titleMedium,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.weight(1f),
+                )
+                if (initial != null) {
+                    RoundIconButton(Icons.Rounded.DeleteOutline, "Borrar", { confirmDelete = true })
+                } else {
+                    Spacer(Modifier.size(42.dp))
+                }
+            }
+
             Column(
                 modifier = Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(horizontal = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(TxType.EXPENSE to "Gasto", TxType.INCOME to "Ingreso", TxType.TRANSFER to "Transferencia").forEach { (t, label) ->
-                        FilterChip(
-                            selected = type == t,
-                            onClick = {
-                                if (type != t) {
-                                    type = t
-                                    categoryId = null
-                                }
-                            },
-                            label = { Text(label) },
-                        )
-                    }
-                }
-
-                Text(
-                    text = (if (amountText.isEmpty()) "0" else amountText) + " €",
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                    textAlign = TextAlign.Center,
-                    fontSize = 44.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = SaldoColors.forType(type),
+                PillSelector(
+                    options = listOf(TxType.EXPENSE to "Gasto", TxType.INCOME to "Ingreso", TxType.TRANSFER to "Transferencia"),
+                    selected = type,
+                    onSelect = { t -> if (type != t) { type = t; categoryId = null } },
+                    modifier = Modifier.fillMaxWidth(),
                 )
 
+                // Importe
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(top = 14.dp, bottom = 6.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.Bottom,
+                ) {
+                    Text(
+                        if (amountText.isEmpty()) "0" else amountText,
+                        style = AmountStyle.copy(fontSize = 56.sp),
+                        color = if (amountText.isEmpty()) MaterialTheme.colorScheme.outline else accent,
+                        maxLines = 1,
+                    )
+                    Text(
+                        " €",
+                        style = AmountStyle.copy(fontSize = 28.sp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 8.dp),
+                    )
+                }
+
                 if (type == TxType.TRANSFER) {
-                    Label("Desde")
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    MiniLabel("Desde")
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         accounts.forEach { a ->
-                            FilterChip(selected = accountId == a.id, onClick = { accountId = a.id }, label = { Text("${a.emoji} ${a.name}") })
+                            SaldoChip(a.name, accountId == a.id, { accountId = a.id }, AppIcons.account(a.icon))
                         }
                     }
-                    Label("Hacia")
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    MiniLabel("Hacia")
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         accounts.filter { it.id != accountId }.forEach { a ->
-                            FilterChip(selected = toAccountId == a.id, onClick = { toAccountId = a.id }, label = { Text("${a.emoji} ${a.name}") })
+                            SaldoChip(a.name, toAccountId == a.id, { toAccountId = a.id }, AppIcons.account(a.icon))
                         }
                     }
                 } else {
-                    Label("Categoría")
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    MiniLabel("Categoría")
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
                         typeCategories.forEach { c ->
-                            FilterChip(selected = categoryId == c.id, onClick = { categoryId = c.id }, label = { Text("${c.emoji} ${c.name}") })
+                            CategoryOption(
+                                name = c.name,
+                                color = Color(c.color),
+                                iconKey = c.icon,
+                                selected = categoryId == c.id,
+                                onClick = {
+                                    categoryId = c.id
+                                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                },
+                            )
                         }
                     }
                     if (accounts.size > 1) {
-                        Label("Cuenta")
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        MiniLabel("Cuenta")
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             accounts.forEach { a ->
-                                FilterChip(selected = accountId == a.id, onClick = { accountId = a.id }, label = { Text("${a.emoji} ${a.name}") })
+                                SaldoChip(a.name, accountId == a.id, { accountId = a.id }, AppIcons.account(a.icon))
                             }
                         }
                     }
                 }
 
-                Label("Fecha")
-                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FilterChip(selected = date == today, onClick = { date = today }, label = { Text("Hoy") })
-                    FilterChip(selected = date == today - 1, onClick = { date = today - 1 }, label = { Text("Ayer") })
-                    FilterChip(
-                        selected = date != today && date != today - 1,
-                        onClick = {
+                MiniLabel("Fecha")
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SaldoChip("Hoy", date == today, { date = today })
+                    SaldoChip("Ayer", date == today - 1, { date = today - 1 })
+                    val custom = date != today && date != today - 1
+                    SaldoChip(
+                        if (custom) shortDate(date) else "Otra fecha",
+                        custom,
+                        {
                             val d = LocalDate.ofEpochDay(date)
                             DatePickerDialog(
                                 context,
@@ -200,30 +234,66 @@ fun MovementEditor(
                                 d.year, d.monthValue - 1, d.dayOfMonth,
                             ).show()
                         },
-                        label = { Text(if (date != today && date != today - 1) shortDate(date) else "📅 Otra fecha") },
+                        Icons.Rounded.Event,
                     )
                 }
 
-                OutlinedTextField(
-                    value = note,
-                    onValueChange = { note = it },
-                    label = { Text("Nota (opcional)") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                )
-                Spacer(Modifier.height(8.dp))
+                // Nota
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 6.dp)
+                        .clip(MaterialTheme.shapes.medium)
+                        .background(MaterialTheme.colorScheme.surfaceContainer)
+                        .padding(horizontal = 14.dp, vertical = 14.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Icon(Icons.Rounded.Edit, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Spacer(Modifier.width(10.dp))
+                    Box(Modifier.weight(1f)) {
+                        if (note.isEmpty()) {
+                            Text("Añadir nota", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        BasicTextField(
+                            value = note,
+                            onValueChange = { note = it },
+                            singleLine = true,
+                            textStyle = MaterialTheme.typography.bodyLarge.copy(color = MaterialTheme.colorScheme.onSurface),
+                            cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
+                }
+                Spacer(Modifier.height(4.dp))
             }
 
             Keypad(
-                onKey = { amountText = appendKey(amountText, it) },
-                onDelete = { amountText = amountText.dropLast(1) },
+                onKey = {
+                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    amountText = appendKey(amountText, it)
+                },
+                onDelete = {
+                    haptics.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                    amountText = amountText.dropLast(1)
+                },
             )
-            Button(
-                onClick = { save() },
-                enabled = canSave,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).height(52.dp),
+
+            // Guardar
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 10.dp)
+                    .height(58.dp)
+                    .clip(CircleShape)
+                    .background(if (canSave) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.surfaceContainerHigh)
+                    .clickable(enabled = canSave) { save() },
+                contentAlignment = Alignment.Center,
             ) {
-                Text(if (initial == null) "Guardar" else "Guardar cambios", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    if (initial == null) "Guardar" else "Guardar cambios",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = if (canSave) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
     }
@@ -246,8 +316,26 @@ fun MovementEditor(
 }
 
 @Composable
-private fun Label(text: String) {
-    Text(text, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
+private fun CategoryOption(name: String, color: Color, iconKey: String, selected: Boolean, onClick: () -> Unit) {
+    Column(
+        modifier = Modifier
+            .width(78.dp)
+            .clip(MaterialTheme.shapes.medium)
+            .clickable(onClick = onClick)
+            .padding(vertical = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        IconTile(AppIcons.category(iconKey), color, size = 50.dp, selected = selected)
+        Spacer(Modifier.height(6.dp))
+        Text(
+            name,
+            style = MaterialTheme.typography.labelSmall,
+            color = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
+        )
+    }
 }
 
 private fun appendKey(current: String, c: Char): String {
@@ -271,13 +359,22 @@ private fun Keypad(onKey: (Char) -> Unit, onDelete: () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
         rows.forEach { row ->
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 row.forEach { key ->
-                    FilledTonalButton(
-                        onClick = { if (key == '<') onDelete() else onKey(key) },
-                        modifier = Modifier.weight(1f).height(52.dp),
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(54.dp)
+                            .clip(MaterialTheme.shapes.medium)
+                            .background(MaterialTheme.colorScheme.surfaceContainer)
+                            .clickable { if (key == '<') onDelete() else onKey(key) },
+                        contentAlignment = Alignment.Center,
                     ) {
-                        Text(if (key == '<') "⌫" else key.toString(), fontSize = 22.sp)
+                        if (key == '<') {
+                            Icon(Icons.AutoMirrored.Rounded.Backspace, contentDescription = "Borrar", tint = MaterialTheme.colorScheme.onSurface)
+                        } else {
+                            Text(key.toString(), style = AmountStyle.copy(fontSize = 24.sp), color = MaterialTheme.colorScheme.onSurface)
+                        }
                     }
                 }
             }

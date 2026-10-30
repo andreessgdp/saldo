@@ -8,7 +8,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
-import androidx.glance.GlanceTheme
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
@@ -41,9 +40,16 @@ import com.andres.saldo.util.Money
 import com.andres.saldo.util.monthLabel
 import java.time.YearMonth
 
-private val ExpenseColor = ColorProvider(Color(0xFFE5534B))
-private val IncomeColor = ColorProvider(Color(0xFF34A853))
-private val WarnColor = ColorProvider(Color(0xFFF2A100))
+// Mismos colores de marca que la app: verde bosque + lima.
+private val Bg = ColorProvider(Color(0xFF0E3A2C))
+private val BgSoft = ColorProvider(Color(0xFF1D5A44))
+private val OnBg = ColorProvider(Color(0xFFF3F6F1))
+private val OnBgMuted = ColorProvider(Color(0xFFB7CBBF))
+private val Lime = ColorProvider(Color(0xFFD2F26B))
+private val OnLime = ColorProvider(Color(0xFF0E3A2C))
+private val ExpenseColor = ColorProvider(Color(0xFFFF8A75))
+private val IncomeColor = ColorProvider(Color(0xFF8FEBB8))
+private val WarnColor = ColorProvider(Color(0xFFFFC56B))
 
 private fun launchIntent(context: Context, action: String): Intent =
     Intent(context, MainActivity::class.java)
@@ -60,7 +66,7 @@ class SummaryWidget : GlanceAppWidget() {
         val repo = (context.applicationContext as SaldoApp).repository
         val snapshot = repo.monthSnapshot(YearMonth.now())
         provideContent {
-            GlanceTheme { SummaryContent(context, snapshot) }
+            SummaryContent(context, snapshot)
         }
     }
 }
@@ -75,18 +81,18 @@ private fun SummaryContent(context: Context, s: MonthSnapshot) {
     Column(
         modifier = GlanceModifier
             .fillMaxSize()
-            .background(GlanceTheme.colors.surface)
+            .background(Bg)
             .cornerRadius(20.dp)
             .padding(14.dp)
             .clickable(actionStartActivity(launchIntent(context, ACTION_OPEN))),
     ) {
         Text(
             monthLabel(s.month),
-            style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 12.sp),
+            style = TextStyle(color = OnBgMuted, fontSize = 12.sp),
         )
         Text(
             Money.format(s.expense),
-            style = TextStyle(color = GlanceTheme.colors.onSurface, fontSize = 24.sp, fontWeight = FontWeight.Bold),
+            style = TextStyle(color = OnBg, fontSize = 24.sp, fontWeight = FontWeight.Bold),
         )
         Text(
             "gastado · balance " + (if (balance > 0) "+" else "") + Money.format(balance),
@@ -102,13 +108,13 @@ private fun SummaryContent(context: Context, s: MonthSnapshot) {
                 color = when {
                     ratio > 1f -> ExpenseColor
                     ratio > 0.8f -> WarnColor
-                    else -> GlanceTheme.colors.primary
+                    else -> Lime
                 },
-                backgroundColor = GlanceTheme.colors.surfaceVariant,
+                backgroundColor = BgSoft,
             )
             Text(
                 "Presupuesto: ${Money.format(s.budgetSpent)} de ${Money.format(s.budget)}",
-                style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 11.sp),
+                style = TextStyle(color = OnBgMuted, fontSize = 11.sp),
                 maxLines = 1,
             )
         }
@@ -127,11 +133,11 @@ private fun SummaryContent(context: Context, s: MonthSnapshot) {
 class QuickAddWidget : GlanceAppWidget() {
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         provideContent {
-            GlanceTheme {
+            run {
                 Row(
                     modifier = GlanceModifier
                         .fillMaxSize()
-                        .background(GlanceTheme.colors.surface)
+                        .background(Bg)
                         .cornerRadius(20.dp)
                         .padding(8.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -154,14 +160,14 @@ private fun WidgetButton(context: Context, label: String, action: String, modifi
     Box(
         modifier = modifier
             .height(44.dp)
-            .background(GlanceTheme.colors.primaryContainer)
+            .background(Lime)
             .cornerRadius(14.dp)
             .clickable(actionStartActivity(launchIntent(context, action))),
         contentAlignment = Alignment.Center,
     ) {
         Text(
             label,
-            style = TextStyle(color = GlanceTheme.colors.onPrimaryContainer, fontSize = 15.sp, fontWeight = FontWeight.Bold),
+            style = TextStyle(color = OnLime, fontSize = 15.sp, fontWeight = FontWeight.Bold),
         )
     }
 }

@@ -1,5 +1,6 @@
 package com.andres.saldo.data
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -11,7 +12,8 @@ enum class TxType { EXPENSE, INCOME, TRANSFER }
 data class Account(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,
-    val emoji: String,
+    /** Clave de icono (ver ui/AppIcons). La columna conserva el nombre antiguo "emoji". */
+    @ColumnInfo(name = "emoji") val icon: String,
     val initialBalance: Long = 0,
     val sortOrder: Int = 0,
     val archived: Boolean = false,
@@ -21,7 +23,7 @@ data class Account(
 data class Category(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val name: String,
-    val emoji: String,
+    @ColumnInfo(name = "emoji") val icon: String,
     val color: Int,
     val type: TxType,
     /** Presupuesto mensual en céntimos (solo gastos). null = sin presupuesto. */
