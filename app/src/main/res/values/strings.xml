@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Saldo</string>
+    <string name="widget_summary">Saldo · Resumen del mes</string>
+    <string name="widget_summary_desc">Lo que llevas gastado este mes y botones para añadir</string>
+    <string name="widget_quick">Saldo · Añadir rápido</string>
+    <string name="widget_quick_desc">Botones para registrar un gasto o ingreso al momento</string>
+    <string name="sc_expense">Nuevo gasto</string>
+    <string name="sc_income">Nuevo ingreso</string>
+    <string name="sc_transfer">Transferencia</string>
+</resources>

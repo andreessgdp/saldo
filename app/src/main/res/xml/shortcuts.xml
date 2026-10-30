@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:enabled="true"
+        android:shortcutId="add_expense"
+        android:shortcutShortLabel="@string/sc_expense">
+        <intent
+            android:action="com.andres.saldo.ADD_EXPENSE"
+            android:targetClass="com.andres.saldo.MainActivity"
+            android:targetPackage="com.andres.saldo" />
+    </shortcut>
+    <shortcut
+        android:enabled="true"
+        android:shortcutId="add_income"
+        android:shortcutShortLabel="@string/sc_income">
+        <intent
+            android:action="com.andres.saldo.ADD_INCOME"
+            android:targetClass="com.andres.saldo.MainActivity"
+            android:targetPackage="com.andres.saldo" />
+    </shortcut>
+    <shortcut
+        android:enabled="true"
+        android:shortcutId="add_transfer"
+        android:shortcutShortLabel="@string/sc_transfer">
+        <intent
+            android:action="com.andres.saldo.ADD_TRANSFER"
+            android:targetClass="com.andres.saldo.MainActivity"
+            android:targetPackage="com.andres.saldo" />
+    </shortcut>
+</shortcuts>
